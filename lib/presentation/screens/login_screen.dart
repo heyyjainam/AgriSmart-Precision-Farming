@@ -271,30 +271,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                           ),
-
-                          const Divider(color: Colors.white24, height: 24),
-
-                          // Admin Portal Hint
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(Icons.info_outline, color: Colors.white70, size: 16),
-                                SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Admin Portal login: admin@gmail.com / 1234',
-                                    style: TextStyle(color: Colors.white70, fontSize: 11.5, height: 1.4),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                         ],
                       ),
                     ),
