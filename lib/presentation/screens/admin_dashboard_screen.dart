@@ -689,6 +689,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               onTap: () {},
             ),
+          ],
+        ),
+      ),
+    );
   }
 
   // ── Tab: Manage Fertilizers ──
