@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import crop_routes, fertilizer_routes, disease_routes, chatbot_routes, mandi_routes
+from app.api.routes import crop_routes, fertilizer_routes, disease_routes, chatbot_routes, mandi_routes, auth_routes
 from app.core.database import Base, engine
 from app.models import models # Ensure models are registered
 
@@ -60,6 +60,7 @@ app.add_middleware(
 )
 
 # Include Routers
+app.include_router(auth_routes.router, prefix="/api/v1", tags=["Authentication"])
 app.include_router(crop_routes.router, prefix="/api/v1", tags=["Crop Recommendation"])
 app.include_router(fertilizer_routes.router, prefix="/api/v1", tags=["Fertilizer Suggestion"])
 app.include_router(disease_routes.router, prefix="/api/v1", tags=["Disease Detection"])

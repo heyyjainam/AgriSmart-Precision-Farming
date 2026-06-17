@@ -1,16 +1,106 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:agrismart/core/theme.dart';
-import 'package:agrismart/presentation/widgets/layout.dart';
+import 'package:http/http.dart' as http;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:agrismart/core/theme.dart';
+import 'package:agrismart/core/api_config.dart';
+import 'package:agrismart/presentation/widgets/layout.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  bool _isLogin = true;
+  bool _obscureText = true;
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  final _userCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    _userCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleAuth() async {
+    final email = _emailCtrl.text.trim();
+    final password = _passCtrl.text.trim();
+    final username = _userCtrl.text.trim();
+
+    if (email.isEmpty || password.isEmpty || (!_isLogin && username.isEmpty)) {
+      setState(() => _errorMessage = 'Please fill all fields');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    // 1. Hardcoded check for Admin Portal
+    if (email == 'admin@gmail.com' && password == '1234') {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const MainLayout(userRole: 'Admin')),
+      );
+      return;
+    }
+
+    // 2. Database check for other users (Farmers)
+    try {
+      final endpoint = _isLogin ? 'login' : 'register';
+      final payload = _isLogin 
+        ? {'email': email, 'password': password}
+        : {'username': username, 'email': email, 'password': password};
+
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/$endpoint'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final role = data['role'] ?? 'Farmer';
+        
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => MainLayout(userRole: role)),
+          );
+        }
+      } else {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _errorMessage = data['detail'] ?? 'Invalid Email or Password';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Connection failed. Make sure backend is running.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
         width: double.infinity,
+        height: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [Color(0xFF1B5E20), Color(0xFF2E7D32), Color(0xFF004D40)],
@@ -32,6 +122,7 @@ class LoginScreen extends StatelessWidget {
             
             Center(
               child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -43,67 +134,166 @@ class LoginScreen extends StatelessWidget {
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white.withOpacity(0.2)),
                       ),
-                      child: const Icon(FontAwesomeIcons.leaf, size: 60, color: Colors.white),
+                      child: const Icon(FontAwesomeIcons.leaf, size: 50, color: Colors.white),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
                     const Text(
                       'AgriSmart',
                       style: TextStyle(
-                        fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.5,
+                        fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.5,
                       ),
                     ),
                     const Text(
                       'Your Intelligent Farming Partner',
-                      style: TextStyle(fontSize: 16, color: Colors.white70, fontStyle: FontStyle.italic),
+                      style: TextStyle(fontSize: 14, color: Colors.white70, fontStyle: FontStyle.italic),
                     ),
-                    const SizedBox(height: 48),
+                    const SizedBox(height: 32),
                     
                     // Glassmorphism Login Card
                     Container(
-                      width: 450,
-                      padding: const EdgeInsets.all(40),
+                      width: 420,
+                      padding: const EdgeInsets.all(32),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(32),
+                        borderRadius: BorderRadius.circular(24),
                         border: Border.all(color: Colors.white.withOpacity(0.2)),
                         boxShadow: [
                           BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 40, offset: const Offset(0, 20)),
                         ],
                       ),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Welcome Back',
-                            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+                          Center(
+                            child: Text(
+                              _isLogin ? 'Sign In' : 'Create Account',
+                              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
                           ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Select your portal to continue',
-                            style: TextStyle(color: Colors.white60, fontSize: 14),
-                          ),
-                          const SizedBox(height: 40),
+                          const SizedBox(height: 24),
                           
-                          _buildModernRoleCard(
-                            context,
-                            'Farmer Portal',
-                            'Analyze crops, soil & diseases',
-                            'Farmer',
-                            FontAwesomeIcons.tractor,
-                            Colors.orange.shade400,
+                          if (_errorMessage != null) ...[
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: Colors.red.withOpacity(0.15),
+                                border: Border.all(color: Colors.red.withOpacity(0.4)),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.error_outline, color: Colors.white, size: 18),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _errorMessage!,
+                                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+
+                          // Username field (only in Register mode)
+                          if (!_isLogin) ...[
+                            _buildInputField(
+                              controller: _userCtrl,
+                              hint: 'Enter your Name',
+                              label: 'Full Name',
+                              icon: Icons.person_outline,
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+
+                          // Email field
+                          _buildInputField(
+                            controller: _emailCtrl,
+                            hint: 'Enter your Email',
+                            label: 'Email Address',
+                            icon: Icons.email_outline,
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Password field
+                          _buildInputField(
+                            controller: _passCtrl,
+                            hint: 'Enter your Password',
+                            label: 'Password',
+                            icon: Icons.lock_outline,
+                            obscureText: _obscureText,
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                color: Colors.white70,
+                                size: 20,
+                              ),
+                              onPressed: () {
+                                setState(() => _obscureText = !_obscureText);
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Login/Register Button
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _handleAuth,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFE65100),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 0,
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                  : Text(_isLogin ? 'Sign In' : 'Sign Up', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            ),
                           ),
                           const SizedBox(height: 20),
-                          _buildModernRoleCard(
-                            context,
-                            'Admin / Expert',
-                            'System health & user metrics',
-                            'Admin',
-                            FontAwesomeIcons.userShield,
-                            Colors.blue.shade400,
+
+                          // Toggle form link
+                          Center(
+                            child: TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _isLogin = !_isLogin;
+                                  _errorMessage = null;
+                                });
+                              },
+                              child: Text(
+                                _isLogin ? "Don't have an account? Sign Up" : "Already have an account? Sign In",
+                                style: const TextStyle(color: Colors.white70, fontSize: 13),
+                              ),
+                            ),
                           ),
-                          const SizedBox(height: 32),
-                          Text(
-                            'AgriSmart v2.0.4',
-                            style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12),
+
+                          const Divider(color: Colors.white24, height: 24),
+
+                          // Admin Portal Hint
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.info_outline, color: Colors.white70, size: 16),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Admin Portal login: admin@gmail.com / 1234',
+                                    style: TextStyle(color: Colors.white70, fontSize: 11.5, height: 1.4),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -118,53 +308,42 @@ class LoginScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildModernRoleCard(BuildContext context, String title, String subtitle, String role, IconData icon, Color color) {
-    return InkWell(
-      onTap: () {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => MainLayout(userRole: role)),
-        );
-      },
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Icon(icon, color: color, size: 24),
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required String hint,
+    required String label,
+    required IconData icon,
+    bool obscureText = false,
+    Widget? suffixIcon,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.white70)),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withOpacity(0.15)),
+          ),
+          child: TextField(
+            controller: controller,
+            obscureText: obscureText,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+              prefixIcon: Icon(icon, color: Colors.white70, size: 20),
+              prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 20),
+              suffixIcon: suffixIcon,
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 14),
             ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.5)),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.arrow_forward_ios, color: Colors.white.withOpacity(0.2), size: 14),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
