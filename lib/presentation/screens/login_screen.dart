@@ -203,7 +203,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               controller: _userCtrl,
                               hint: 'Enter your Name',
                               label: 'Full Name',
-                              icon: Icons.person_outline,
+                              icon: Icons.person_outlined,
                             ),
                             const SizedBox(height: 16),
                           ],
@@ -213,7 +213,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             controller: _emailCtrl,
                             hint: 'Enter your Email',
                             label: 'Email Address',
-                            icon: Icons.email_outline,
+                            icon: Icons.email_outlined,
                           ),
                           const SizedBox(height: 16),
 
@@ -222,7 +222,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             controller: _passCtrl,
                             hint: 'Enter your Password',
                             label: 'Password',
-                            icon: Icons.lock_outline,
+                            icon: Icons.lock_outlined,
                             obscureText: _obscureText,
                             suffixIcon: IconButton(
                               icon: Icon(
