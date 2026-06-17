@@ -50,7 +50,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (email == 'admin@gmail.com' && password == '1234') {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const MainLayout(userRole: 'Admin')),
+        MaterialPageRoute(
+          builder: (context) => const MainLayout(userRole: 'Admin', userName: 'Admin Manager'),
+        ),
       );
       return;
     }
@@ -71,12 +73,29 @@ class _LoginScreenState extends State<LoginScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final role = data['role'] ?? 'Farmer';
+        final username = data['username'] ?? 'Farmer';
         
         if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => MainLayout(userRole: role)),
-          );
+          if (_isLogin) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => MainLayout(userRole: role, userName: username),
+              ),
+            );
+          } else {
+            setState(() {
+              _isLogin = true;
+              _passCtrl.clear();
+              _errorMessage = null;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Registration successful! Please sign in to continue.'),
+                backgroundColor: Color(0xFF2E7D32),
+              ),
+            );
+          }
         }
       } else {
         final data = jsonDecode(response.body);

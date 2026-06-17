@@ -13,8 +13,9 @@ import 'package:agrismart/presentation/screens/login_screen.dart';
 
 class MainLayout extends StatefulWidget {
   final String userRole; // 'Farmer' or 'Admin'
+  final String userName;
 
-  const MainLayout({super.key, required this.userRole});
+  const MainLayout({super.key, required this.userRole, this.userName = 'Farmer John'});
 
   @override
   State<MainLayout> createState() => _MainLayoutState();
@@ -265,7 +266,7 @@ class _MainLayoutState extends State<MainLayout> {
   Widget _buildTopNavbar() {
     final bool isAdmin = widget.userRole == 'Admin';
     final String welcomeMsg = isAdmin ? 'System Administration & Management' : 'Welcome back to your smart farm dashboard';
-    final String userName = isAdmin ? 'Admin Manager' : 'Farmer John';
+    final String userName = widget.userName;
     final String userType = isAdmin ? 'System Administrator' : 'Premium User';
 
     return Container(
