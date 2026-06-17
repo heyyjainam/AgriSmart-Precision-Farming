@@ -33,3 +33,20 @@ class MandiRate(Base):
     max_price = Column(Float, nullable=False)
     modal_price = Column(Float, nullable=False)
     arrival_date = Column(String, nullable=True)
+
+class Fertilizer(Base):
+    __tablename__ = "fertilizers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    formula = Column(String, nullable=True)
+    npk_ratio = Column(String, nullable=True)
+    fertilizer_type = Column(String, nullable=True)
+    color_hex = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+    best_for = Column(Text, nullable=True) # Stores list of crops as JSON string
+    schedule = Column(Text, nullable=True) # Stores list of timing phase strings as JSON string
+    benefits = Column(Text, nullable=True) # Stores list of benefits as JSON string
+    precautions = Column(Text, nullable=True) # Stores list of precautions as JSON string
+    application_method = Column(Text, nullable=True)
+

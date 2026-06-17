@@ -140,7 +140,7 @@ class FertilizerService:
         else:
             return "NPK Complex"
 
-    def predict(self, data):
+    def predict(self, data, db=None):
         fertilizer_name = "NPK Complex"
 
         if self.model and self.scaler:
@@ -170,13 +170,45 @@ class FertilizerService:
                     normalized = key
                     break
 
-        info = FERTILIZER_INFO.get(normalized, DEFAULT_FERTILIZER)
-
         # Compute N-P-K status labels
         n_status = "Deficient" if data.N < 40 else "Optimal" if data.N < 80 else "Excess"
         p_status = "Deficient" if data.P < 30 else "Optimal" if data.P < 70 else "Excess"
         k_status = "Deficient" if data.K < 30 else "Optimal" if data.K < 70 else "Excess"
 
+        # Try to query the database first
+        if db:
+            from app.models.models import Fertilizer
+            import json
+            try:
+                db_fert = db.query(Fertilizer).filter(Fertilizer.name.like(f"%{normalized}%")).first()
+                if db_fert:
+                    schedule_list = json.loads(db_fert.schedule) if db_fert.schedule else []
+                    best_for_crops = json.loads(db_fert.best_for) if db_fert.best_for else []
+                    benefits = json.loads(db_fert.benefits) if db_fert.benefits else []
+                    precautions = json.loads(db_fert.precautions) if db_fert.precautions else []
+
+                    return {
+                        "recommended_fertilizer": db_fert.name,
+                        "formula": db_fert.formula or "",
+                        "npk_ratio": db_fert.npk_ratio or "",
+                        "fertilizer_type": db_fert.fertilizer_type or "",
+                        "color_hex": db_fert.color_hex or "0xFF546E7A",
+                        "description": db_fert.description or "",
+                        "best_for_crops": best_for_crops,
+                        "application_schedule": schedule_list,
+                        "benefits": benefits,
+                        "precautions": precautions,
+                        "application_method": db_fert.application_method or "",
+                        "n_status": n_status,
+                        "p_status": p_status,
+                        "k_status": k_status,
+                        "total_dose_per_acre": schedule_list[0].split(': ')[-1] if (schedule_list and ':' in schedule_list[0]) else "50 kg",
+                    }
+            except Exception as ex:
+                print(f"Error loading fertilizer from DB: {ex}")
+
+        # Fallback to local memory dictionary
+        info = FERTILIZER_INFO.get(normalized, DEFAULT_FERTILIZER)
         schedule_list = [f"{s['phase']} ({s['timing']}): {s['dose_per_acre']}" for s in info["schedule"]]
 
         return {

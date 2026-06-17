@@ -58,10 +58,38 @@ class _FertilizerSuggestionScreenState extends State<FertilizerSuggestionScreen>
   FertilizerResult? _result;
   String? _error;
 
-  final List<String> _crops = [
+  List<String> _crops = [
     'Rice', 'Wheat', 'Maize', 'Sugarcane', 'Cotton',
     'Potato', 'Soybean', 'Groundnut', 'Mustard', 'Banana',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCrops();
+  }
+
+  Future<void> _fetchCrops() async {
+    try {
+      final res = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/fertilizer-crops'),
+      ).timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(res.body);
+        final List<String> fetchedCrops = List<String>.from(data);
+        if (fetchedCrops.isNotEmpty) {
+          setState(() {
+            _crops = fetchedCrops;
+            if (!_crops.contains(_selectedCrop)) {
+              _selectedCrop = _crops.first;
+            }
+          });
+        }
+      }
+    } catch (e) {
+      print('Failed to fetch crops dynamically: $e');
+    }
+  }
 
   @override
   void dispose() {

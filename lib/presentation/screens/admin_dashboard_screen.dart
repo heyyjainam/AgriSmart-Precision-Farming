@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:agrismart/core/theme.dart';
 import 'package:agrismart/core/history_service.dart';
 import 'package:agrismart/core/api_config.dart';
@@ -29,11 +30,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   bool _isDiseaseModelOnline = false;
   bool _isCropModelOnline = false;
   bool _isLoading = true;
+  List<dynamic> _fertilizersList = [];
+  bool _loadingFertilizers = false;
+
+  Future<void> _fetchFertilizers() async {
+    setState(() => _loadingFertilizers = true);
+    try {
+      final res = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/fertilizers'),
+      ).timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        setState(() {
+          _fertilizersList = jsonDecode(res.body);
+        });
+      }
+    } catch (e) {
+      print('Error loading fertilizers: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _loadingFertilizers = false);
+      }
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _backendUrlController.text = ApiConfig.baseUrl;
     _loadAdminData();
   }
@@ -54,6 +77,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     // 2. Perform live health checks
     bool diseaseOnline = await _checkHealth('${ApiConfig.baseUrl}/api/v1/predict-disease');
     bool cropOnline = await _checkHealth('${ApiConfig.baseUrl}/api/v1/predict-crop'); // Assuming this exists or returns 405/422 if online
+
+    // Load fertilizers list
+    _fetchFertilizers();
 
     if (mounted) {
       setState(() {
@@ -103,6 +129,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                       _buildOverviewTab(),
                       _buildUserManagementTab(),
                       _buildModelHealthTab(),
+                      _buildManageFertilizersTab(),
                       _buildSettingsTab(),
                     ],
                   ),
@@ -145,7 +172,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
           _sidebarItem(0, 'Dashboard', FontAwesomeIcons.chartPie),
           _sidebarItem(1, 'User Accounts', FontAwesomeIcons.users),
           _sidebarItem(2, 'AI Model Status', FontAwesomeIcons.microchip),
-          _sidebarItem(3, 'System Settings', FontAwesomeIcons.gears),
+          _sidebarItem(3, 'Manage Fertilizers', FontAwesomeIcons.flask),
+          _sidebarItem(4, 'System Settings', FontAwesomeIcons.gears),
           const Spacer(),
           Padding(
             padding: const EdgeInsets.all(20.0),
@@ -661,9 +689,295 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               onTap: () {},
             ),
+  }
+
+  // ── Tab: Manage Fertilizers ──
+  Widget _buildManageFertilizersTab() {
+    if (_loadingFertilizers) {
+      return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+    }
+    if (_fertilizersList.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(FontAwesomeIcons.flask, size: 60, color: Colors.grey),
+            const SizedBox(height: 16),
+            const Text('No fertilizers loaded or backend offline.', style: TextStyle(fontSize: 16)),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _fetchFertilizers,
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+              child: const Text('Retry Connection', style: TextStyle(color: Colors.white)),
+            )
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: GlassCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Manage Fertilizers Knowledge Base', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                IconButton(
+                  icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
+                  onPressed: _fetchFertilizers,
+                )
+              ],
+            ),
+            const SizedBox(height: 24),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _fertilizersList.length,
+                itemBuilder: (context, index) {
+                  final fert = _fertilizersList[index];
+                  final name = fert['recommended_fertilizer'] ?? 'Unknown';
+                  final formula = fert['formula'] ?? '';
+                  final npk = fert['npk_ratio'] ?? '';
+                  final type = fert['fertilizer_type'] ?? '';
+                  final colorHex = fert['color_hex'] ?? '0xFF546E7A';
+                  final desc = fert['description'] ?? '';
+                  Color fColor;
+                  try {
+                    fColor = Color(int.parse(colorHex));
+                  } catch (_) {
+                    fColor = Colors.grey;
+                  }
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 2,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: fColor.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(FontAwesomeIcons.flask, color: fColor, size: 24),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      name,
+                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: fColor.withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        formula,
+                                        style: TextStyle(color: fColor, fontSize: 12, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'NPK Ratio: $npk  |  Type: $type',
+                                  style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  desc,
+                                  style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          ElevatedButton.icon(
+                            onPressed: () => _editFertilizerDialog(fert),
+                            icon: const Icon(Icons.edit, size: 16, color: Colors.white),
+                            label: const Text('Edit', style: TextStyle(color: Colors.white)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          )
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  void _editFertilizerDialog(Map<String, dynamic> fert) {
+    final name = fert['recommended_fertilizer'] ?? '';
+    final formulaCtrl = TextEditingController(text: fert['formula'] ?? '');
+    final npkCtrl = TextEditingController(text: fert['npk_ratio'] ?? '');
+    final typeCtrl = TextEditingController(text: fert['fertilizer_type'] ?? '');
+    final colorCtrl = TextEditingController(text: fert['color_hex'] ?? '0xFF546E7A');
+    final descCtrl = TextEditingController(text: fert['description'] ?? '');
+    final methodCtrl = TextEditingController(text: fert['application_method'] ?? '');
+    
+    final List<dynamic> bestForList = fert['best_for_crops'] ?? [];
+    final bestForCtrl = TextEditingController(text: bestForList.join(', '));
+
+    final List<dynamic> scheduleList = fert['application_schedule'] ?? [];
+    final scheduleCtrl = TextEditingController(text: scheduleList.join(', '));
+
+    final List<dynamic> benefitsList = fert['benefits'] ?? [];
+    final benefitsCtrl = TextEditingController(text: benefitsList.join(', '));
+
+    final List<dynamic> precautionsList = fert['precautions'] ?? [];
+    final precautionsCtrl = TextEditingController(text: precautionsList.join(', '));
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Edit Fertilizer: $name', style: const TextStyle(fontWeight: FontWeight.bold)),
+          content: SizedBox(
+            width: 600,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _dialogField(formulaCtrl, 'Formula', 'e.g. CO(NH2)2'),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _dialogField(npkCtrl, 'NPK Ratio', 'e.g. 46-0-0'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _dialogField(typeCtrl, 'Fertilizer Type', 'e.g. Nitrogenous'),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _dialogField(colorCtrl, 'Color Hex Code', 'e.g. 0xFF1565C0'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _dialogField(descCtrl, 'Description', 'Provide details...', maxLines: 3),
+                  const SizedBox(height: 12),
+                  _dialogField(bestForCtrl, 'Best for Crops (comma-separated)', 'e.g. Rice, Wheat, Maize'),
+                  const SizedBox(height: 12),
+                  _dialogField(scheduleCtrl, 'Application Schedule (comma-separated)', 'e.g. Basal Dose: 50 kg'),
+                  const SizedBox(height: 12),
+                  _dialogField(benefitsCtrl, 'Benefits (comma-separated)', 'e.g. Fast acting'),
+                  const SizedBox(height: 12),
+                  _dialogField(precautionsCtrl, 'Precautions (comma-separated)', 'e.g. Avoid rain'),
+                  const SizedBox(height: 12),
+                  _dialogField(methodCtrl, 'Application Method', 'e.g. Broadcast', maxLines: 2),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final payload = {
+                  'formula': formulaCtrl.text.trim(),
+                  'npk_ratio': npkCtrl.text.trim(),
+                  'fertilizer_type': typeCtrl.text.trim(),
+                  'color_hex': colorCtrl.text.trim(),
+                  'description': descCtrl.text.trim(),
+                  'best_for': bestForCtrl.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+                  'schedule': scheduleCtrl.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+                  'benefits': benefitsCtrl.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+                  'precautions': precautionsCtrl.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+                  'application_method': methodCtrl.text.trim(),
+                };
+
+                try {
+                  final res = await http.put(
+                    Uri.parse('${ApiConfig.baseUrl}/api/v1/fertilizers/$name'),
+                    headers: {'Content-Type': 'application/json'},
+                    body: jsonEncode(payload),
+                  ).timeout(const Duration(seconds: 5));
+
+                  if (res.statusCode == 200) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('$name updated successfully!'), backgroundColor: AppTheme.primaryColor),
+                    );
+                    _fetchFertilizers(); // Refresh list
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to update: ${res.statusCode}'), backgroundColor: Colors.red),
+                    );
+                  }
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+              child: const Text('Save Changes', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _dialogField(TextEditingController ctrl, String label, String hint, {int maxLines = 1}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: TextField(
+            controller: ctrl,
+            maxLines: maxLines,
+            decoration: InputDecoration(
+              hintText: hint,
+              border: InputBorder.none,
+              isDense: true,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

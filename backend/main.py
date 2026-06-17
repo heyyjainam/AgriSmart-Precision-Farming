@@ -7,6 +7,42 @@ from app.models import models # Ensure models are registered
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
+from app.core.database import SessionLocal
+import json
+
+def seed_database():
+    db = SessionLocal()
+    try:
+        from app.models.models import Fertilizer
+        if db.query(Fertilizer).count() == 0:
+            print("[DB] Seeding default fertilizers...")
+            from app.services.fertilizer_service import FERTILIZER_INFO
+            for name, info in FERTILIZER_INFO.items():
+                schedule_list = [f"{s['phase']} ({s['timing']}): {s['dose_per_acre']}" for s in info["schedule"]]
+                db_fert = Fertilizer(
+                    name=name,
+                    formula=info.get("formula", ""),
+                    npk_ratio=info.get("npk", ""),
+                    fertilizer_type=info.get("type", ""),
+                    color_hex=info.get("color", "0xFF546E7A"),
+                    description=info.get("description", ""),
+                    best_for=json.dumps(info.get("best_for", [])),
+                    schedule=json.dumps(schedule_list),
+                    benefits=json.dumps(info.get("benefits", [])),
+                    precautions=json.dumps(info.get("precautions", [])),
+                    application_method=info.get("application_method", "")
+                )
+                db.add(db_fert)
+            db.commit()
+            print("[DB] Default fertilizers seeded successfully!")
+    except Exception as e:
+        print(f"[DB] Seeding error: {e}")
+    finally:
+        db.close()
+
+seed_database()
+
+
 
 app = FastAPI(
     title="AgriSmart Assistant API",
